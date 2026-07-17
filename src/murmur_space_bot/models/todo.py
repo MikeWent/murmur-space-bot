@@ -12,7 +12,6 @@ from murmur_space_bot.models.user import User
 
 class TodoStatus(StrEnum):
     PENDING = "pending"
-    IN_PROGRESS = "in_progress"
     DONE = "done"
 
 

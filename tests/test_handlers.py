@@ -30,7 +30,7 @@ from murmur_space_bot.adapters.telegram.users.router import user_command
 from murmur_space_bot.config import Settings
 from murmur_space_bot.models.todo import TodoStatus
 from murmur_space_bot.models.user import UserTier
-from murmur_space_bot.services.todos import TodoService
+from murmur_space_bot.services.todos import TodoConfirmationStore, TodoService
 from murmur_space_bot.services.todo_board import TodoBoardService
 from murmur_space_bot.services.users import UserService
 
@@ -150,7 +150,7 @@ async def test_todo_command_creates_and_lists_task_without_visible_id(
     assert "Replace bulb" in message.answers[-1]
     assert "#1" not in message.answers[-1]
     keyboard = message.answer_kwargs[-1]["reply_markup"]
-    assert keyboard.inline_keyboard[0][0].callback_data == "todo:start:1"
+    assert keyboard.inline_keyboard[0][0].callback_data == "todo:done:1"
     assert board.refresh_count == 1
     await bot.session.close()
 
@@ -187,13 +187,14 @@ async def test_todo_in_its_topic_replies_to_pinned_board(
     await bot.session.close()
 
 
-async def test_todo_buttons_advance_task_and_refresh_views(
+async def test_todo_button_requires_two_taps_then_refreshes_views(
     session: AsyncSession,
 ) -> None:
     user = await make_user(session, 1, "worker")
     todo = await TodoService(session).create_task("Clean the kitchen", user)
     bot = FakeBot()
     board = RecordingBoard()
+    confirmations = TodoConfirmationStore()
     source = Message(
         message_id=10,
         date=datetime.now(timezone.utc),
@@ -207,15 +208,17 @@ async def test_todo_buttons_advance_task_and_refresh_views(
         text="/todo",
     ).as_(bot)
 
-    start = CallbackQuery(
-        id="start",
+    first = CallbackQuery(
+        id="first",
         from_user=source.from_user,
         chat_instance="chat",
         message=source,
-        data=f"todo:start:{todo.id}",
+        data=f"todo:done:{todo.id}",
     ).as_(bot)
-    await todo_item_pressed(start, session, user, settings(), bot, board)
-    assert todo.status is TodoStatus.IN_PROGRESS
+    await todo_item_pressed(
+        first, session, user, settings(), bot, board, confirmations
+    )
+    assert todo.status is TodoStatus.PENDING
 
     done = CallbackQuery(
         id="done",
@@ -224,14 +227,16 @@ async def test_todo_buttons_advance_task_and_refresh_views(
         message=source,
         data=f"todo:done:{todo.id}",
     ).as_(bot)
-    await todo_item_pressed(done, session, user, settings(), bot, board)
+    await todo_item_pressed(
+        done, session, user, settings(), bot, board, confirmations
+    )
 
     assert todo.status is TodoStatus.DONE
     assert todo.done_by is user
-    assert board.refresh_count == 2
+    assert board.refresh_count == 1
     request_names = [request.__class__.__name__ for request in bot.requests]
     assert request_names.count("AnswerCallbackQuery") == 2
-    assert request_names.count("EditMessageText") == 2
+    assert request_names.count("EditMessageText") == 1
     notifications = [
         request
         for request in bot.requests
@@ -249,7 +254,7 @@ async def test_todo_buttons_advance_task_and_refresh_views(
     await bot.session.close()
 
 
-async def test_start_button_on_pinned_board_sends_no_message_notification(
+async def test_first_tap_on_pinned_board_sends_no_message_notification(
     session: AsyncSession,
 ) -> None:
     user = await make_user(session, 1, "worker")
@@ -275,11 +280,11 @@ async def test_start_button_on_pinned_board_sends_no_message_notification(
         text="todo board",
     ).as_(bot)
     callback = CallbackQuery(
-        id="start",
+        id="first",
         from_user=source.from_user,
         chat_instance="chat",
         message=source,
-        data=f"todo:start:{todo.id}",
+        data=f"todo:done:{todo.id}",
     ).as_(bot)
 
     await todo_item_pressed(callback, session, user, settings(), bot, board)
@@ -290,7 +295,7 @@ async def test_start_button_on_pinned_board_sends_no_message_notification(
         if request.__class__.__name__ == "SendMessage"
     ]
     assert notifications == []
-    assert board.refresh_count == 1
+    assert board.refresh_count == 0
     assert not any(
         request.__class__.__name__ == "EditMessageText"
         for request in bot.requests

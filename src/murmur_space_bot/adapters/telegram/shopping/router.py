@@ -103,7 +103,7 @@ async def shopping_item_pressed(
         return
 
     if not result.bought:
-        await callback.answer(" 🌸 PRESS ONCE MORE to confirm it's bought")
+        await callback.answer(" 🌸 PRESS TWICE to confirm it's bought")
         return
 
     await callback.answer("Marked as bought ✨")

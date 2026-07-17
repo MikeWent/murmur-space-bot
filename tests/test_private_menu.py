@@ -132,7 +132,7 @@ async def test_private_menu_guides_task_and_shopping_creation(
     assert "Review the new logo" in tasks_text
     assert tasks_kwargs["reply_markup"].inline_keyboard[0][
         0
-    ].callback_data.startswith("todo:start:")
+    ].callback_data.startswith("todo:done:")
 
     item_prompt = FakeMessage()
     await ask_for_item(item_prompt, state)

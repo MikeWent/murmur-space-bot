@@ -21,7 +21,7 @@ from murmur_space_bot.config import Settings
 from murmur_space_bot.models.user import User
 from murmur_space_bot.services.errors import ServiceError
 from murmur_space_bot.services.todo_board import TodoBoardService
-from murmur_space_bot.services.todos import TodoService
+from murmur_space_bot.services.todos import TodoConfirmationStore, TodoService
 
 router = Router(name="todos")
 logger = logging.getLogger(__name__)
@@ -64,6 +64,7 @@ async def todo_item_pressed(
     settings: Settings,
     bot: Bot,
     todo_board: TodoBoardManager,
+    todo_confirmations: TodoConfirmationStore | None = None,
 ) -> None:
     message = callback.message
     if not isinstance(message, Message):
@@ -75,25 +76,21 @@ async def todo_item_pressed(
         await callback.answer("This button looks a little wonky 🐾", show_alert=True)
         return
 
-    service = TodoService(session)
-    notification: str | None = None
+    service = TodoService(session, todo_confirmations)
     try:
-        if action == "start":
-            await service.start_task(task_id, db_user)
-            confirmation = "Task is in progress 🐾"
-        else:
-            todo = await service.complete_task(task_id, db_user)
-            confirmation = "Task is done ✨"
-            notification = format_completed(todo)
+        result = await service.press_task(task_id, db_user)
     except ServiceError as exc:
         await callback.answer(str(exc), show_alert=True)
         await _refresh_views(message, bot, session, settings, todo_board)
         return
 
-    await callback.answer(confirmation)
+    if not result.completed:
+        await callback.answer("🌸 PRESS TWICE to mark this task done")
+        return
+
+    await callback.answer("Task is done ✨")
     await _refresh_views(message, bot, session, settings, todo_board)
-    if notification is not None:
-        await _notify(message, bot, settings, notification)
+    await _notify(message, bot, settings, format_completed(result.todo))
 
 
 def _parse_callback_data(data: str | None) -> tuple[str | None, int | None]:
@@ -106,7 +103,7 @@ def _parse_callback_data(data: str | None) -> tuple[str | None, int | None]:
         task_id = int(raw_task_id)
     except ValueError:
         return None, None
-    if action not in {"start", "done"} or task_id < 1:
+    if action != "done" or task_id < 1:
         return None, None
     return action, task_id
 

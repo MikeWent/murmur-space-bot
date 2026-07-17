@@ -16,37 +16,33 @@ BUTTON_TEXT_LIMIT = 64
 
 
 def format_created(todo: Todo) -> str:
-    return f"🌸 Added task: <b>{escape(todo.description)}</b>"
+    actor = user_link(todo.created_by)
+    return f"🌸 Task <b>{escape(todo.description)}</b> created by {actor}"
 
 
 def format_completed(todo: Todo) -> str:
     actor = user_link(todo.done_by) if todo.done_by else "a mystery kitty"
-    return f"✅ Task <b>{escape(todo.description)}</b> finished by {actor}!"
+    return f"✨ <b>{escape(todo.description)}</b> marked done by {actor}!"
 
 
 def format_dashboard(dashboard: TodoDashboard) -> str:
     sections = [
         _format_section("🌸 To do", dashboard.pending, _format_pending),
-        _format_section("🐾 In progress", dashboard.in_progress, _format_in_progress),
         # _format_section("✨ Done", dashboard.recently_done, _format_done),
     ]
     return "\n\n".join(
         (
             *sections,
-            "<i>Tap 🐾 to start a task, then ✨ when it's finished</i>",
+            "<i>Tap a task <b>twice</b> to mark it done 🐾</i>",
         )
     )
 
 
 def todo_keyboard(dashboard: TodoDashboard) -> InlineKeyboardMarkup | None:
     buttons = [
-        _status_button(todo, action="start", label="🐾 Start")
+        _status_button(todo, action="done", label="🐾")
         for todo in dashboard.pending
     ]
-    buttons.extend(
-        _status_button(todo, action="done", label="✨ Finish")
-        for todo in dashboard.in_progress
-    )
     if not buttons:
         return None
     return InlineKeyboardMarkup(inline_keyboard=[[button] for button in buttons])
@@ -76,12 +72,7 @@ def _format_section(
 
 
 def _format_pending(todo: Todo) -> str:
-    return f"  {escape(todo.description)}"
-
-
-def _format_in_progress(todo: Todo) -> str:
-    actor = user_link(todo.taken_by) if todo.taken_by else "a mystery kitty"
-    return f"  {escape(todo.description)} — {actor}"
+    return f" · {escape(todo.description)}"
 
 
 def _format_done(todo: Todo) -> str:
@@ -90,7 +81,7 @@ def _format_done(todo: Todo) -> str:
 
 
 def _status_button(todo: Todo, *, action: str, label: str) -> InlineKeyboardButton:
-    prefix = f"{label} · "
+    prefix = f"{label} "
     available = BUTTON_TEXT_LIMIT - len(prefix)
     description = todo.description
     if len(description) > available:

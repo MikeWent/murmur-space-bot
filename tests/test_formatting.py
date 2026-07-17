@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from murmur_space_bot.adapters.telegram.common.user_links import user_link
 from murmur_space_bot.adapters.telegram.todos.views import (
     format_completed,
+    format_created,
     format_dashboard,
     format_pinned_dashboard,
 )
@@ -38,6 +39,13 @@ async def test_done_formatting_and_pinned_footer(session: AsyncSession) -> None:
     )
     service = TodoService(session)
     todo = await service.create_task("Wash all the dishes", user)
+
+    created = format_created(todo)
+    assert "Wash all the dishes" in created
+    assert "created by" in created
+    assert '<a href="https://t.me/alice">Alice</a>' in created
+    assert "@alice" not in created
+
     todo = await service.complete_task(todo.id, user)
     dashboard = await service.get_dashboard()
 
@@ -47,7 +55,8 @@ async def test_done_formatting_and_pinned_footer(session: AsyncSession) -> None:
     assert f"#{todo.id}" not in notification
 
     rendered = format_dashboard(dashboard)
-    assert "<b>✨ Done</b>" in rendered
+    assert "<b>🌸 To do</b>" in rendered
+    assert "Wash all the dishes" not in rendered
     assert "Recently done" not in rendered
     assert f"#{todo.id}" not in rendered
 

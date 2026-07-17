@@ -88,7 +88,7 @@ async def test_board_is_created_in_topic_stored_and_pinned(
     assert message_id == 100
     assert bot.sent[0]["chat_id"] == -100123
     assert bot.sent[0]["message_thread_id"] == 55
-    assert "Tap 🐾 to start a task" in bot.sent[0]["text"]
+    assert "Tap a task twice to mark it done" in bot.sent[0]["text"]
     assert "<code>#" not in bot.sent[0]["text"]
     assert bot.pinned == [
         {"chat_id": -100123, "message_id": 100, "disable_notification": True}
@@ -143,7 +143,7 @@ async def test_unchanged_board_is_still_repinned(session: AsyncSession) -> None:
     assert len(bot.pinned) == 2
 
 
-async def test_board_buttons_offer_the_next_status_action(
+async def test_board_buttons_offer_done_action_for_pending_tasks(
     session: AsyncSession,
 ) -> None:
     user = await UserService(session).sync_telegram_user(
@@ -154,9 +154,7 @@ async def test_board_buttons_offer_the_next_status_action(
     )
     service = TodoService(session)
     pending = await service.create_task("Water the plants", user)
-    active = await service.create_task("Hang the fairy lights", user)
     done = await service.create_task("Make tea", user)
-    await service.start_task(active.id, user)
     await service.complete_task(done.id, user)
     bot = BoardBot()
 
@@ -165,10 +163,8 @@ async def test_board_buttons_offer_the_next_status_action(
     keyboard = bot.sent[0]["reply_markup"]
     buttons = [row[0] for row in keyboard.inline_keyboard]
     assert [button.text for button in buttons] == [
-        "🐾 Start · Water the plants",
-        "✨ Finish · Hang the fairy lights",
+        "🐾 · Water the plants",
     ]
     assert [button.callback_data for button in buttons] == [
-        f"todo:start:{pending.id}",
-        f"todo:done:{active.id}",
+        f"todo:done:{pending.id}",
     ]

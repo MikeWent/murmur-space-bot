@@ -15,6 +15,7 @@ from murmur_space_bot.adapters.telegram.todos.router import router as todo_route
 from murmur_space_bot.adapters.telegram.users.router import router as user_router
 from murmur_space_bot.config import Settings
 from murmur_space_bot.services.shopping import ShoppingConfirmationStore
+from murmur_space_bot.services.todos import TodoConfirmationStore
 
 
 def create_bot(settings: Settings) -> Bot:
@@ -33,6 +34,7 @@ def create_dispatcher(
     todo_board: TodoBoardManager | None = None,
     shopping_board: ShoppingBoardManager | None = None,
     shopping_confirmations: ShoppingConfirmationStore | None = None,
+    todo_confirmations: TodoConfirmationStore | None = None,
 ) -> Dispatcher:
     dispatcher = Dispatcher(
         settings=settings,
@@ -41,6 +43,7 @@ def create_dispatcher(
         shopping_confirmations=(
             shopping_confirmations or ShoppingConfirmationStore()
         ),
+        todo_confirmations=todo_confirmations or TodoConfirmationStore(),
     )
     dispatcher.update.outer_middleware(DatabaseSessionMiddleware(session_factory))
     dispatcher.update.outer_middleware(UserSyncMiddleware(settings))
