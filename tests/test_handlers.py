@@ -8,7 +8,14 @@ from zoneinfo import ZoneInfo
 
 from aiogram import Bot
 from aiogram.methods import TelegramMethod
-from aiogram.types import Chat, Message, MessageEntity, Update, User as TelegramUser
+from aiogram.types import (
+    CallbackQuery,
+    Chat,
+    Message,
+    MessageEntity,
+    Update,
+    User as TelegramUser,
+)
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from sqlalchemy.pool import StaticPool
@@ -16,12 +23,12 @@ from sqlalchemy.pool import StaticPool
 from murmur_space_bot.adapters.database import initialize_schema
 from murmur_space_bot.adapters.telegram.app import create_bot, create_dispatcher
 from murmur_space_bot.adapters.telegram.todos.router import (
-    doing_command,
-    done_command,
+    todo_item_pressed,
     todo_command,
 )
 from murmur_space_bot.adapters.telegram.users.router import user_command
 from murmur_space_bot.config import Settings
+from murmur_space_bot.models.todo import TodoStatus
 from murmur_space_bot.models.user import UserTier
 from murmur_space_bot.services.todos import TodoService
 from murmur_space_bot.services.todo_board import TodoBoardService
@@ -110,7 +117,9 @@ async def make_user(
     return user
 
 
-async def test_todo_command_returns_created_id_and_lists_it(session: AsyncSession) -> None:
+async def test_todo_command_creates_and_lists_task_without_visible_id(
+    session: AsyncSession,
+) -> None:
     user = await make_user(session, 1, "creator")
     message = FakeMessage()
     board = RecordingBoard()
@@ -125,7 +134,8 @@ async def test_todo_command_returns_created_id_and_lists_it(session: AsyncSessio
         bot,
         board,
     )
-    assert "#1" in message.answers[-1]
+    assert "Replace bulb" in message.answers[-1]
+    assert "#1" not in message.answers[-1]
     assert board.refresh_count == 1
 
     await todo_command(
@@ -137,7 +147,10 @@ async def test_todo_command_returns_created_id_and_lists_it(session: AsyncSessio
         bot,
         board,
     )
-    assert "Replace bulb <code>#1</code>" in message.answers[-1]
+    assert "Replace bulb" in message.answers[-1]
+    assert "#1" not in message.answers[-1]
+    keyboard = message.answer_kwargs[-1]["reply_markup"]
+    assert keyboard.inline_keyboard[0][0].callback_data == "todo:start:1"
     assert board.refresh_count == 1
     await bot.session.close()
 
@@ -174,25 +187,114 @@ async def test_todo_in_its_topic_replies_to_pinned_board(
     await bot.session.close()
 
 
-async def test_doing_and_done_refresh_board_and_done_includes_task_text(
+async def test_todo_buttons_advance_task_and_refresh_views(
     session: AsyncSession,
 ) -> None:
     user = await make_user(session, 1, "worker")
-    todo = await TodoService(session).create_task("Clean the entire kitchen", user)
-    message = FakeMessage()
-    board = RecordingBoard()
+    todo = await TodoService(session).create_task("Clean the kitchen", user)
     bot = FakeBot()
+    board = RecordingBoard()
+    source = Message(
+        message_id=10,
+        date=datetime.now(timezone.utc),
+        chat=Chat(id=-999, type="supergroup"),
+        from_user=TelegramUser(
+            id=user.telegram_id,
+            is_bot=False,
+            first_name=user.first_name,
+            username=user.username,
+        ),
+        text="/todo",
+    ).as_(bot)
 
-    await doing_command(
-        message, SimpleNamespace(args=str(todo.id)), session, user, bot, board
-    )
-    await done_command(
-        message, SimpleNamespace(args=str(todo.id)), session, user, bot, board
-    )
+    start = CallbackQuery(
+        id="start",
+        from_user=source.from_user,
+        chat_instance="chat",
+        message=source,
+        data=f"todo:start:{todo.id}",
+    ).as_(bot)
+    await todo_item_pressed(start, session, user, settings(), bot, board)
+    assert todo.status is TodoStatus.IN_PROGRESS
 
+    done = CallbackQuery(
+        id="done",
+        from_user=source.from_user,
+        chat_instance="chat",
+        message=source,
+        data=f"todo:done:{todo.id}",
+    ).as_(bot)
+    await todo_item_pressed(done, session, user, settings(), bot, board)
+
+    assert todo.status is TodoStatus.DONE
+    assert todo.done_by is user
     assert board.refresh_count == 2
-    assert "Clean the entire kitchen" in message.answers[-1]
-    assert "@worker" not in message.answers[-1]
+    request_names = [request.__class__.__name__ for request in bot.requests]
+    assert request_names.count("AnswerCallbackQuery") == 2
+    assert request_names.count("EditMessageText") == 2
+    notifications = [
+        request
+        for request in bot.requests
+        if request.__class__.__name__ == "SendMessage"
+    ]
+    assert len(notifications) == 2
+    topic_notifications = [
+        request
+        for request in notifications
+        if request.chat_id == settings().todo_chat_id
+        and request.message_thread_id == settings().todo_topic_id
+    ]
+    assert len(topic_notifications) == 1
+    assert "finished by" in topic_notifications[0].text
+    await bot.session.close()
+
+
+async def test_start_button_on_pinned_board_sends_no_message_notification(
+    session: AsyncSession,
+) -> None:
+    user = await make_user(session, 1, "worker")
+    todo = await TodoService(session).create_task("Water the plants", user)
+    await TodoBoardService(session).store_message(
+        chat_id=-100123,
+        topic_id=55,
+        message_id=100,
+    )
+    bot = FakeBot()
+    board = RecordingBoard()
+    source = Message(
+        message_id=100,
+        date=datetime.now(timezone.utc),
+        chat=Chat(id=-100123, type="supergroup"),
+        message_thread_id=55,
+        from_user=TelegramUser(
+            id=user.telegram_id,
+            is_bot=False,
+            first_name=user.first_name,
+            username=user.username,
+        ),
+        text="todo board",
+    ).as_(bot)
+    callback = CallbackQuery(
+        id="start",
+        from_user=source.from_user,
+        chat_instance="chat",
+        message=source,
+        data=f"todo:start:{todo.id}",
+    ).as_(bot)
+
+    await todo_item_pressed(callback, session, user, settings(), bot, board)
+
+    notifications = [
+        request
+        for request in bot.requests
+        if request.__class__.__name__ == "SendMessage"
+    ]
+    assert notifications == []
+    assert board.refresh_count == 1
+    assert not any(
+        request.__class__.__name__ == "EditMessageText"
+        for request in bot.requests
+    )
     await bot.session.close()
 
 

@@ -34,9 +34,7 @@ are held only in process memory and disappear when the bot restarts.
 - `/user` — show your stored user information.
 - `/user resident <@username|telegram-id>` — promote a user (residents only).
 - Reply with `/user guest` — demote the replied-to user (residents only).
-- `/todo <task>` — create a task and show its ID.
-- `/todo` — show pending, in-progress, and recently completed tasks.
-- `/doing <id>` — take a task.
-- `/done <id>` — complete a task.
+- `/todo <task>` — create a task.
+- `/todo` — show pending, in-progress, and recently completed tasks with status buttons.
 - `/needs` — show the shopping list with interactive item buttons.
 - `/need <item>` — add an item to the shopping list.

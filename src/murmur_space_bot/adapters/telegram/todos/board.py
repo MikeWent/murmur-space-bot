@@ -8,7 +8,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from murmur_space_bot.adapters.telegram.common.pinned_messages import (
     publish_pinned_message,
 )
-from murmur_space_bot.adapters.telegram.todos.views import format_pinned_dashboard
+from murmur_space_bot.adapters.telegram.todos.views import (
+    format_pinned_dashboard,
+    todo_keyboard,
+)
 from murmur_space_bot.config import Settings
 from murmur_space_bot.models.base import utc_now
 from murmur_space_bot.services.todo_board import TodoBoardService
@@ -53,5 +56,5 @@ class TodoBoardManager:
             text=text,
             current_message_id=board.message_id if board else None,
             store_message_id=store_message_id,
+            reply_markup=todo_keyboard(dashboard),
         )
-

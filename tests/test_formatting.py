@@ -44,17 +44,18 @@ async def test_done_formatting_and_pinned_footer(session: AsyncSession) -> None:
     notification = format_completed(todo)
     assert "Wash all the dishes" in notification
     assert "@alice" not in notification
+    assert f"#{todo.id}" not in notification
 
     rendered = format_dashboard(dashboard)
     assert "<b>✨ Done</b>" in rendered
     assert "Recently done" not in rendered
+    assert f"#{todo.id}" not in rendered
 
     pinned = format_pinned_dashboard(
         dashboard,
         datetime(2026, 7, 17, 12, 34, tzinfo=timezone.utc),
         ZoneInfo("Asia/Tbilisi"),
     )
-    assert "/todo paint walls" in pinned
-    assert "/doing id" in pinned
-    assert "/done id" in pinned
-    assert pinned.endswith("<i>Freshly updated: 2026-07-17 16:34</i>")
+    assert "/doing" not in pinned
+    assert "/done" not in pinned
+    assert f"#{todo.id}" not in pinned

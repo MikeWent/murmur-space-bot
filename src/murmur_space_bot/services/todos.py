@@ -75,11 +75,11 @@ class TodoService:
     async def start_task(self, task_id: int, actor: User) -> Todo:
         todo = await self.session.get(Todo, task_id)
         if todo is None:
-            raise TodoNotFoundError(f"I couldn't find task #{task_id} 🐾")
+            raise TodoNotFoundError("I couldn't find that task 🐾")
         if todo.status == TodoStatus.IN_PROGRESS and todo.taken_by_id == actor.id:
             return await self._get_loaded(task_id)
         if todo.status != TodoStatus.PENDING:
-            raise InvalidTodoStateError(f"Task #{task_id} isn't ready to be claimed 🐾")
+            raise InvalidTodoStateError("That task isn't ready to be claimed 🐾")
 
         result = await self.session.execute(
             update(Todo)
@@ -91,20 +91,16 @@ class TodoService:
             )
         )
         if result.rowcount != 1:
-            raise InvalidTodoStateError(
-                f"Another kitty just claimed task #{task_id} 🐾"
-            )
+            raise InvalidTodoStateError("Another kitty just claimed that task 🐾")
         await self.session.flush()
         return await self._get_loaded(task_id, refresh=True)
 
     async def complete_task(self, task_id: int, actor: User) -> Todo:
         todo = await self.session.get(Todo, task_id)
         if todo is None:
-            raise TodoNotFoundError(f"I couldn't find task #{task_id} 🐾")
+            raise TodoNotFoundError("I couldn't find that task 🐾")
         if todo.status == TodoStatus.DONE:
-            raise InvalidTodoStateError(
-                f"Task #{task_id} is already sparkling in Done ✨"
-            )
+            raise InvalidTodoStateError("That task is already sparkling in Done ✨")
 
         result = await self.session.execute(
             update(Todo)
@@ -116,9 +112,7 @@ class TodoService:
             )
         )
         if result.rowcount != 1:
-            raise InvalidTodoStateError(
-                f"Task #{task_id} is already sparkling in Done ✨"
-            )
+            raise InvalidTodoStateError("That task is already sparkling in Done ✨")
         await self.session.flush()
         return await self._get_loaded(task_id, refresh=True)
 
@@ -128,5 +122,5 @@ class TodoService:
             statement = statement.execution_options(populate_existing=True)
         todo = await self.session.scalar(statement)
         if todo is None:
-            raise TodoNotFoundError(f"I couldn't find task #{task_id} 🐾")
+            raise TodoNotFoundError("I couldn't find that task 🐾")
         return todo

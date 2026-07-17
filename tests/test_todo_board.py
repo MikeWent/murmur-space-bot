@@ -12,6 +12,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from murmur_space_bot.adapters.telegram.todos.board import TodoBoardManager
 from murmur_space_bot.config import Settings
 from murmur_space_bot.services.todo_board import TodoBoardService
+from murmur_space_bot.services.todos import TodoService
+from murmur_space_bot.services.users import UserService
 
 
 class BoardBot:
@@ -86,9 +88,8 @@ async def test_board_is_created_in_topic_stored_and_pinned(
     assert message_id == 100
     assert bot.sent[0]["chat_id"] == -100123
     assert bot.sent[0]["message_thread_id"] == 55
-    assert bot.sent[0]["text"].endswith(
-        "<i>Freshly updated: 2026-07-17 16:00</i>"
-    )
+    assert "Tap 🐾 to start a task" in bot.sent[0]["text"]
+    assert "<code>#" not in bot.sent[0]["text"]
     assert bot.pinned == [
         {"chat_id": -100123, "message_id": 100, "disable_notification": True}
     ]
@@ -140,3 +141,34 @@ async def test_unchanged_board_is_still_repinned(session: AsyncSession) -> None:
     assert message_id == 100
     assert len(bot.sent) == 1
     assert len(bot.pinned) == 2
+
+
+async def test_board_buttons_offer_the_next_status_action(
+    session: AsyncSession,
+) -> None:
+    user = await UserService(session).sync_telegram_user(
+        telegram_id=1,
+        username="alice",
+        first_name="Alice",
+        last_name=None,
+    )
+    service = TodoService(session)
+    pending = await service.create_task("Water the plants", user)
+    active = await service.create_task("Hang the fairy lights", user)
+    done = await service.create_task("Make tea", user)
+    await service.start_task(active.id, user)
+    await service.complete_task(done.id, user)
+    bot = BoardBot()
+
+    await TodoBoardManager(settings()).refresh(bot, session)
+
+    keyboard = bot.sent[0]["reply_markup"]
+    buttons = [row[0] for row in keyboard.inline_keyboard]
+    assert [button.text for button in buttons] == [
+        "🐾 Start · Water the plants",
+        "✨ Finish · Hang the fairy lights",
+    ]
+    assert [button.callback_data for button in buttons] == [
+        f"todo:start:{pending.id}",
+        f"todo:done:{active.id}",
+    ]

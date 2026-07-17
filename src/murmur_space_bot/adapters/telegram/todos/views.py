@@ -5,19 +5,23 @@ from datetime import datetime
 from html import escape
 from zoneinfo import ZoneInfo
 
-from murmur_space_bot.adapters.telegram.common.time import format_local_time
+from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
+
 from murmur_space_bot.adapters.telegram.common.user_links import user_link
 from murmur_space_bot.models.todo import Todo
 from murmur_space_bot.services.todos import TodoDashboard
 
+TODO_CALLBACK_PREFIX = "todo:"
+BUTTON_TEXT_LIMIT = 64
+
 
 def format_created(todo: Todo) -> str:
-    return f"🌸 Added task <b>#{todo.id}</b>: {escape(todo.description)}"
+    return f"🌸 Added task: <b>{escape(todo.description)}</b>"
 
 
 def format_completed(todo: Todo) -> str:
     actor = user_link(todo.done_by) if todo.done_by else "a mystery kitty"
-    return f"✅ Task #{todo.id}: <b>{escape(todo.description)}</b> finished by {actor}!"
+    return f"✅ Task <b>{escape(todo.description)}</b> finished by {actor}!"
 
 
 def format_dashboard(dashboard: TodoDashboard) -> str:
@@ -26,7 +30,26 @@ def format_dashboard(dashboard: TodoDashboard) -> str:
         _format_section("🐾 In progress", dashboard.in_progress, _format_in_progress),
         _format_section("✨ Done", dashboard.recently_done, _format_done),
     ]
-    return "\n\n".join(sections)
+    return "\n\n".join(
+        (
+            *sections,
+            "<i>Tap 🐾 to start a task, then ✨ when it's finished</i>",
+        )
+    )
+
+
+def todo_keyboard(dashboard: TodoDashboard) -> InlineKeyboardMarkup | None:
+    buttons = [
+        _status_button(todo, action="start", label="🐾 Start")
+        for todo in dashboard.pending
+    ]
+    buttons.extend(
+        _status_button(todo, action="done", label="✨ Finish")
+        for todo in dashboard.in_progress
+    )
+    if not buttons:
+        return None
+    return InlineKeyboardMarkup(inline_keyboard=[[button] for button in buttons])
 
 
 def format_pinned_dashboard(
@@ -37,8 +60,7 @@ def format_pinned_dashboard(
     return "\n".join(
         (
             format_dashboard(dashboard),
-            "\n<code>/todo paint walls</code>, <code>/doing id</code>, <code>/done id</code>",
-            f"<i>Freshly updated: {format_local_time(updated_at, local_timezone)}</i>",
+            # f"<i>Freshly updated: {format_local_time(updated_at, local_timezone)}</i>",
         )
     )
 
@@ -54,14 +76,26 @@ def _format_section(
 
 
 def _format_pending(todo: Todo) -> str:
-    return f"  {escape(todo.description)} <code>#{todo.id}</code>"
+    return f"  {escape(todo.description)}"
 
 
 def _format_in_progress(todo: Todo) -> str:
     actor = user_link(todo.taken_by) if todo.taken_by else "a mystery kitty"
-    return f"  {escape(todo.description)} <code>#{todo.id}</code> — {actor}"
+    return f"  {escape(todo.description)} — {actor}"
 
 
 def _format_done(todo: Todo) -> str:
     actor = user_link(todo.done_by) if todo.done_by else "a mystery kitty"
-    return f"  <s>{escape(todo.description)}</s> <code>#{todo.id}</code> — {actor}"
+    return f"  <s>{escape(todo.description)}</s> — {actor}"
+
+
+def _status_button(todo: Todo, *, action: str, label: str) -> InlineKeyboardButton:
+    prefix = f"{label} · "
+    available = BUTTON_TEXT_LIMIT - len(prefix)
+    description = todo.description
+    if len(description) > available:
+        description = f"{description[: available - 1].rstrip()}…"
+    return InlineKeyboardButton(
+        text=f"{prefix}{description}",
+        callback_data=f"{TODO_CALLBACK_PREFIX}{action}:{todo.id}",
+    )
