@@ -14,6 +14,27 @@ uv sync
 uv run murmur-space-bot
 ```
 
+## Docker Compose
+
+Copy `.env.example` to `.env` and fill in the Telegram token, chat IDs, and topic
+IDs. Then start the bot:
+
+```shell
+docker compose up --build -d
+docker compose logs -f bot
+```
+
+Compose builds the locked production environment with `uv`. SQLite data is stored
+in the host's `./data` directory, mounted at `/app/data` inside the container. The
+container overrides `DATABASE_URL` accordingly, so the database survives image
+rebuilds and container replacement.
+
+To stop the bot without deleting its data:
+
+```shell
+docker compose down
+```
+
 The SQLite schema is created automatically at startup. There are no migrations.
 At startup, the bot creates or refreshes a pinned todo dashboard in the configured
 topic. Its message ID is stored in SQLite and replaced automatically if the message

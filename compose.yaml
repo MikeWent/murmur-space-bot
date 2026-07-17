@@ -1,0 +1,20 @@
+services:
+  bot:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: murmur-space-bot:local
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: sqlite+aiosqlite:////app/data/murmur-space-bot.sqlite3
+    volumes:
+      - ./data:/app/data
+    init: true
+    restart: unless-stopped
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+    stop_grace_period: 20s
