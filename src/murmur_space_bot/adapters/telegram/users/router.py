@@ -5,7 +5,7 @@ from aiogram.filters import Command, CommandObject
 from aiogram.types import Message
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from murmur_space_bot.adapters.telegram.formatting import format_user
+from murmur_space_bot.adapters.telegram.users.views import format_user
 from murmur_space_bot.models.user import User, UserTier
 from murmur_space_bot.services.errors import ServiceError
 from murmur_space_bot.services.users import UserService
@@ -32,19 +32,25 @@ async def user_command(
         action = args[0].lower()
         if action == "resident":
             if len(args) != 2:
-                await message.answer("Usage: /user resident &lt;username|telegram-id&gt;")
+                await message.answer(
+                    "🌸 Try: /user resident &lt;username|telegram-id&gt;"
+                )
                 return
             target = await service.resolve_user(args[1])
-            await service.change_tier(actor=db_user, target=target, tier=UserTier.RESIDENT)
+            await service.change_tier(
+                actor=db_user, target=target, tier=UserTier.RESIDENT
+            )
         elif action == "guest":
             if len(args) != 1 or db_replied_user is None:
-                await message.answer("Reply to a user's message with /user guest")
+                await message.answer(
+                    "🐾 Reply to a user's message with <code>/user guest</code>."
+                )
                 return
             target = db_replied_user
             await service.change_tier(actor=db_user, target=target, tier=UserTier.GUEST)
         else:
             await message.answer(
-                "Usage: /user [resident &lt;username|telegram-id&gt;|guest in reply]"
+                "🌸 Try: /user [resident &lt;username|telegram-id&gt;|guest in reply]"
             )
             return
     except ServiceError as exc:

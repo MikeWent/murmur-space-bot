@@ -5,13 +5,13 @@ from zoneinfo import ZoneInfo
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from murmur_space_bot.adapters.telegram.formatting import (
+from murmur_space_bot.adapters.telegram.common.user_links import user_link
+from murmur_space_bot.adapters.telegram.todos.views import (
     format_completed,
     format_dashboard,
     format_pinned_dashboard,
-    format_user,
-    user_label,
 )
+from murmur_space_bot.adapters.telegram.users.views import format_user
 from murmur_space_bot.services.todos import TodoService
 from murmur_space_bot.services.users import UserService
 
@@ -24,8 +24,8 @@ async def test_user_links_do_not_render_username_mentions(session: AsyncSession)
         last_name="Example",
     )
 
-    assert user_label(user) == '<a href="https://t.me/alice">Alice Example</a>'
-    assert "@alice" not in user_label(user)
+    assert user_link(user) == '<a href="https://t.me/alice">Alice Example</a>'
+    assert "@alice" not in user_link(user)
     assert "@alice" not in format_user(user)
 
 
@@ -46,7 +46,7 @@ async def test_done_formatting_and_pinned_footer(session: AsyncSession) -> None:
     assert "@alice" not in notification
 
     rendered = format_dashboard(dashboard)
-    assert "<b>Done</b>" in rendered
+    assert "<b>✨ Done</b>" in rendered
     assert "Recently done" not in rendered
 
     pinned = format_pinned_dashboard(
@@ -57,6 +57,4 @@ async def test_done_formatting_and_pinned_footer(session: AsyncSession) -> None:
     assert "/todo paint walls" in pinned
     assert "/doing id" in pinned
     assert "/done id" in pinned
-    assert pinned.endswith(
-        "<i>Last updated: 2026-07-17 16:34 (Asia/Tbilisi)</i>"
-    )
+    assert pinned.endswith("<i>Freshly updated: 2026-07-17 16:34</i>")

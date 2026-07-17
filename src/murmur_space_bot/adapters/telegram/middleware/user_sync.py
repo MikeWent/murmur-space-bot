@@ -56,3 +56,4 @@ class UserSyncMiddleware(BaseMiddleware):
         if isinstance(event, Message):
             return event
         return None
+

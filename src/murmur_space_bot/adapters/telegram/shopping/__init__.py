@@ -1,0 +1,2 @@
+"""Telegram shopping-list feature."""
+

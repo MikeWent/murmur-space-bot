@@ -58,7 +58,7 @@ class UserService:
     async def resolve_user(self, username_or_id: str) -> User:
         value = username_or_id.strip()
         if not value:
-            raise UserNotFoundError("Specify a username or Telegram ID.")
+            raise UserNotFoundError("Please give me a username or Telegram ID 🐾")
 
         if value.lstrip("-").isdigit():
             user = await self.get_by_telegram_id(int(value))
@@ -68,7 +68,7 @@ class UserService:
                 select(User).where(func.lower(User.username) == username)
             )
         if user is None:
-            raise UserNotFoundError("User was not found in the bot database.")
+            raise UserNotFoundError("I couldn't find that kitty in our community 🐾")
         return user
 
     def is_resident(self, user: User) -> bool:
@@ -76,7 +76,7 @@ class UserService:
 
     def require_resident(self, user: User) -> None:
         if not self.is_resident(user):
-            raise InsufficientTierError("Only residents can change user tiers.")
+            raise InsufficientTierError("Only residents can change community tiers 🌸")
 
     async def change_tier(self, *, actor: User, target: User, tier: UserTier) -> User:
         self.require_resident(actor)

@@ -33,9 +33,11 @@ class TodoService:
     async def create_task(self, description: str, creator: User) -> Todo:
         description = description.strip()
         if not description:
-            raise InvalidTodoStateError("Task text cannot be empty.")
+            raise InvalidTodoStateError("Tell me what needs doing first, nya 🐾")
         if len(description) > 1000:
-            raise InvalidTodoStateError("Task text cannot exceed 1000 characters.")
+            raise InvalidTodoStateError(
+                "That task is a bit too fluffy—keep it under 1000 characters 🐾"
+            )
 
         todo = Todo(description=description, created_by_id=creator.id)
         self.session.add(todo)
@@ -73,11 +75,11 @@ class TodoService:
     async def start_task(self, task_id: int, actor: User) -> Todo:
         todo = await self.session.get(Todo, task_id)
         if todo is None:
-            raise TodoNotFoundError(f"Task #{task_id} does not exist.")
+            raise TodoNotFoundError(f"I couldn't find task #{task_id} 🐾")
         if todo.status == TodoStatus.IN_PROGRESS and todo.taken_by_id == actor.id:
             return await self._get_loaded(task_id)
         if todo.status != TodoStatus.PENDING:
-            raise InvalidTodoStateError(f"Task #{task_id} is not available to take.")
+            raise InvalidTodoStateError(f"Task #{task_id} isn't ready to be claimed 🐾")
 
         result = await self.session.execute(
             update(Todo)
@@ -89,16 +91,20 @@ class TodoService:
             )
         )
         if result.rowcount != 1:
-            raise InvalidTodoStateError(f"Task #{task_id} was taken by someone else.")
+            raise InvalidTodoStateError(
+                f"Another kitty just claimed task #{task_id} 🐾"
+            )
         await self.session.flush()
         return await self._get_loaded(task_id, refresh=True)
 
     async def complete_task(self, task_id: int, actor: User) -> Todo:
         todo = await self.session.get(Todo, task_id)
         if todo is None:
-            raise TodoNotFoundError(f"Task #{task_id} does not exist.")
+            raise TodoNotFoundError(f"I couldn't find task #{task_id} 🐾")
         if todo.status == TodoStatus.DONE:
-            raise InvalidTodoStateError(f"Task #{task_id} is already done.")
+            raise InvalidTodoStateError(
+                f"Task #{task_id} is already sparkling in Done ✨"
+            )
 
         result = await self.session.execute(
             update(Todo)
@@ -110,7 +116,9 @@ class TodoService:
             )
         )
         if result.rowcount != 1:
-            raise InvalidTodoStateError(f"Task #{task_id} is already done.")
+            raise InvalidTodoStateError(
+                f"Task #{task_id} is already sparkling in Done ✨"
+            )
         await self.session.flush()
         return await self._get_loaded(task_id, refresh=True)
 
@@ -120,5 +128,5 @@ class TodoService:
             statement = statement.execution_options(populate_existing=True)
         todo = await self.session.scalar(statement)
         if todo is None:
-            raise TodoNotFoundError(f"Task #{task_id} does not exist.")
+            raise TodoNotFoundError(f"I couldn't find task #{task_id} 🐾")
         return todo

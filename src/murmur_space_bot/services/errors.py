@@ -17,3 +17,14 @@ class TodoNotFoundError(ServiceError):
 class InvalidTodoStateError(ServiceError):
     pass
 
+
+class ShoppingItemNotFoundError(ServiceError):
+    pass
+
+
+class DuplicateShoppingItemError(ServiceError):
+    pass
+
+
+class InvalidShoppingItemError(ServiceError):
+    pass

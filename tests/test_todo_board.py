@@ -9,7 +9,7 @@ from aiogram.exceptions import TelegramBadRequest
 from aiogram.methods import EditMessageText
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from murmur_space_bot.adapters.telegram.todo_board import TodoBoardManager
+from murmur_space_bot.adapters.telegram.todos.board import TodoBoardManager
 from murmur_space_bot.config import Settings
 from murmur_space_bot.services.todo_board import TodoBoardService
 
@@ -64,6 +64,8 @@ def settings() -> Settings:
         recent_done_limit=5,
         todo_chat_id=-100123,
         todo_topic_id=55,
+        shopping_chat_id=-100456,
+        shopping_topic_id=77,
         timezone=ZoneInfo("Asia/Tbilisi"),
         log_level="INFO",
     )
@@ -85,7 +87,7 @@ async def test_board_is_created_in_topic_stored_and_pinned(
     assert bot.sent[0]["chat_id"] == -100123
     assert bot.sent[0]["message_thread_id"] == 55
     assert bot.sent[0]["text"].endswith(
-        "<i>Last updated: 2026-07-17 16:00 (Asia/Tbilisi)</i>"
+        "<i>Freshly updated: 2026-07-17 16:00</i>"
     )
     assert bot.pinned == [
         {"chat_id": -100123, "message_id": 100, "disable_notification": True}

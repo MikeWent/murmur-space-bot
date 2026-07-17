@@ -14,25 +14,30 @@ from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from sqlalchemy.pool import StaticPool
 
 from murmur_space_bot.adapters.database import initialize_schema
-from murmur_space_bot.adapters.telegram.bot import create_bot, create_dispatcher
-from murmur_space_bot.adapters.telegram.todo_handlers import (
+from murmur_space_bot.adapters.telegram.app import create_bot, create_dispatcher
+from murmur_space_bot.adapters.telegram.todos.router import (
     doing_command,
     done_command,
     todo_command,
 )
-from murmur_space_bot.adapters.telegram.user_handlers import user_command
+from murmur_space_bot.adapters.telegram.users.router import user_command
 from murmur_space_bot.config import Settings
 from murmur_space_bot.models.user import UserTier
 from murmur_space_bot.services.todos import TodoService
+from murmur_space_bot.services.todo_board import TodoBoardService
 from murmur_space_bot.services.users import UserService
 
 
 @dataclass
 class FakeMessage:
+    chat: Any = field(default_factory=lambda: SimpleNamespace(id=-999))
+    message_thread_id: int | None = None
     answers: list[str] = field(default_factory=list)
+    answer_kwargs: list[dict[str, Any]] = field(default_factory=list)
 
-    async def answer(self, text: str) -> None:
+    async def answer(self, text: str, **kwargs: Any) -> None:
         self.answers.append(text)
+        self.answer_kwargs.append(kwargs)
 
 
 class FakeBot(Bot):
@@ -64,6 +69,8 @@ def settings() -> Settings:
         recent_done_limit=5,
         todo_chat_id=-100123,
         todo_topic_id=55,
+        shopping_chat_id=-100456,
+        shopping_topic_id=77,
         timezone=ZoneInfo("Asia/Tbilisi"),
         log_level="INFO",
     )
@@ -78,6 +85,8 @@ async def test_bot_disables_link_previews_by_default() -> None:
         recent_done_limit=app_settings.recent_done_limit,
         todo_chat_id=app_settings.todo_chat_id,
         todo_topic_id=app_settings.todo_topic_id,
+        shopping_chat_id=app_settings.shopping_chat_id,
+        shopping_topic_id=app_settings.shopping_topic_id,
         timezone=app_settings.timezone,
         log_level=app_settings.log_level,
     )
@@ -133,6 +142,38 @@ async def test_todo_command_returns_created_id_and_lists_it(session: AsyncSessio
     await bot.session.close()
 
 
+async def test_todo_in_its_topic_replies_to_pinned_board(
+    session: AsyncSession,
+) -> None:
+    user = await make_user(session, 1, "creator")
+    await TodoBoardService(session).store_message(
+        chat_id=-100123,
+        topic_id=55,
+        message_id=100,
+    )
+    message = FakeMessage(
+        chat=SimpleNamespace(id=-100123),
+        message_thread_id=55,
+    )
+    board = RecordingBoard()
+    bot = FakeBot()
+
+    await todo_command(
+        message,
+        SimpleNamespace(args=None),
+        session,
+        user,
+        settings(),
+        bot,
+        board,
+    )
+
+    assert board.refresh_count == 1
+    assert message.answers == ["Our current todo list is pinned right here 🌸"]
+    assert message.answer_kwargs[0]["reply_parameters"].message_id == 100
+    await bot.session.close()
+
+
 async def test_doing_and_done_refresh_board_and_done_includes_task_text(
     session: AsyncSession,
 ) -> None:
@@ -167,7 +208,7 @@ async def test_guest_cannot_promote_user_via_handler(session: AsyncSession) -> N
         actor,
     )
 
-    assert message.answers == ["Only residents can change user tiers."]
+    assert message.answers == ["Only residents can change community tiers 🌸"]
 
 
 async def test_resident_can_demote_replied_user(session: AsyncSession) -> None:
@@ -184,7 +225,7 @@ async def test_resident_can_demote_replied_user(session: AsyncSession) -> None:
     )
 
     assert target.tier is UserTier.GUEST
-    assert "Tier: <b>guest</b>" in message.answers[-1]
+    assert "Community tier · <b>guest</b>" in message.answers[-1]
 
 
 async def test_dispatcher_syncs_user_and_injects_session() -> None:
@@ -217,6 +258,6 @@ async def test_dispatcher_syncs_user_and_injects_session() -> None:
         assert user is not None
         assert user.username == "new_user"
     assert len(bot.requests) == 1
-    assert "Telegram ID: <code>42</code>" in bot.requests[0].text
+    assert "Telegram ID · <code>42</code>" in bot.requests[0].text
     await bot.session.close()
     await engine.dispose()

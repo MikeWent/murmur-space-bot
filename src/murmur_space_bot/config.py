@@ -58,6 +58,8 @@ class Settings:
     recent_done_limit: int
     todo_chat_id: int
     todo_topic_id: int
+    shopping_chat_id: int
+    shopping_topic_id: int
     timezone: ZoneInfo
     log_level: str
 
@@ -74,10 +76,16 @@ class Settings:
 
         todo_chat_id = _required_int("TODO_CHAT_ID")
         todo_topic_id = _required_int("TODO_TOPIC_ID")
+        shopping_chat_id = _required_int("SHOPPING_CHAT_ID")
+        shopping_topic_id = _required_int("SHOPPING_TOPIC_ID")
         if todo_chat_id == 0:
             raise ValueError("TODO_CHAT_ID cannot be zero")
         if todo_topic_id < 1:
             raise ValueError("TODO_TOPIC_ID must be positive")
+        if shopping_chat_id == 0:
+            raise ValueError("SHOPPING_CHAT_ID cannot be zero")
+        if shopping_topic_id < 1:
+            raise ValueError("SHOPPING_TOPIC_ID must be positive")
 
         return cls(
             telegram_bot_token=token,
@@ -88,6 +96,8 @@ class Settings:
             recent_done_limit=done_limit,
             todo_chat_id=todo_chat_id,
             todo_topic_id=todo_topic_id,
+            shopping_chat_id=shopping_chat_id,
+            shopping_topic_id=shopping_topic_id,
             timezone=_required_timezone(),
             log_level=os.getenv("LOG_LEVEL", "INFO").upper(),
         )
