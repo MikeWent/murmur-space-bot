@@ -39,7 +39,7 @@ def format_shopping_list(
             "<i>Tap an item <b>twice</b> if you've bought it 🐾</i>",
         ))
     else:
-        lines.extend(("", "Add something with <code>/need item</code> ♡"))    
+        lines.extend(("", "The list is empty ♡"))
     return "\n".join(lines)
 
 

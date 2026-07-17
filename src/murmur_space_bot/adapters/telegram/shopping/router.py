@@ -8,7 +8,7 @@ from aiogram.filters import Command, CommandObject
 from aiogram.types import CallbackQuery, Message, ReplyParameters
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from murmur_space_bot.adapters.telegram.common.topics import is_topic
+from murmur_space_bot.adapters.telegram.common.topics import is_topic, send_to_topic
 from murmur_space_bot.adapters.telegram.shopping.board import ShoppingBoardManager
 from murmur_space_bot.adapters.telegram.shopping.views import (
     CALLBACK_PREFIX,
@@ -156,16 +156,21 @@ async def _notify(
     settings: Settings,
     text: str,
 ) -> None:
-    await message.answer(text)
+    try:
+        await send_to_topic(
+            bot,
+            chat_id=settings.shopping_chat_id,
+            topic_id=settings.shopping_topic_id,
+            text=text,
+        )
+    except TelegramAPIError:
+        logger.exception("Could not send shopping notification to its topic")
+
     if not _is_shopping_topic(message, settings):
         try:
-            await bot.send_message(
-                chat_id=settings.shopping_chat_id,
-                message_thread_id=settings.shopping_topic_id,
-                text=text,
-            )
+            await message.answer(text)
         except TelegramAPIError:
-            logger.exception("Could not mirror shopping notification")
+            logger.exception("Could not send shopping notification to source chat")
 
 
 def _is_shopping_topic(message: Message, settings: Settings) -> bool:

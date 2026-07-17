@@ -6,6 +6,7 @@ from aiogram.enums import ParseMode
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from murmur_space_bot.adapters.database import DatabaseSessionMiddleware
+from murmur_space_bot.adapters.telegram.menu.router import router as menu_router
 from murmur_space_bot.adapters.telegram.middleware.user_sync import UserSyncMiddleware
 from murmur_space_bot.adapters.telegram.shopping.board import ShoppingBoardManager
 from murmur_space_bot.adapters.telegram.shopping.router import router as shopping_router
@@ -46,5 +47,5 @@ def create_dispatcher(
     dispatcher.include_router(user_router)
     dispatcher.include_router(todo_router)
     dispatcher.include_router(shopping_router)
+    dispatcher.include_router(menu_router)
     return dispatcher
-

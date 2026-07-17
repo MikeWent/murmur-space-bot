@@ -28,7 +28,7 @@ def format_dashboard(dashboard: TodoDashboard) -> str:
     sections = [
         _format_section("🌸 To do", dashboard.pending, _format_pending),
         _format_section("🐾 In progress", dashboard.in_progress, _format_in_progress),
-        _format_section("✨ Done", dashboard.recently_done, _format_done),
+        # _format_section("✨ Done", dashboard.recently_done, _format_done),
     ]
     return "\n\n".join(
         (

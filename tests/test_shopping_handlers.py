@@ -118,8 +118,10 @@ async def test_need_adds_notifies_mirrors_and_refreshes_board(
         if request.__class__.__name__ == "SendMessage"
     ]
     assert len(send_requests) == 2
-    assert send_requests[-1].chat_id == -100456
-    assert send_requests[-1].message_thread_id == 77
+    topic_notification = next(
+        request for request in send_requests if request.chat_id == -100456
+    )
+    assert topic_notification.message_thread_id == 77
     await bot.session.close()
 
 
@@ -176,6 +178,8 @@ async def test_need_does_not_duplicate_notification_inside_shopping_topic(
         if request.__class__.__name__ == "SendMessage"
     ]
     assert len(send_requests) == 1
+    assert send_requests[0].chat_id == -100456
+    assert send_requests[0].message_thread_id == 77
     await bot.session.close()
 
 
@@ -218,4 +222,51 @@ async def test_two_taps_buy_update_original_and_mirror_notification(
     request_names = [request.__class__.__name__ for request in bot.requests]
     assert "EditMessageText" in request_names
     assert request_names.count("SendMessage") == 2
+    await bot.session.close()
+
+
+async def test_buy_on_pinned_board_sends_one_notification_to_shopping_topic(
+    session: AsyncSession,
+) -> None:
+    user = await make_user(session)
+    item = await ShoppingService(session).add_item("Coffee", user)
+    await ShoppingBoardService(session).store_message(
+        chat_id=-100456,
+        topic_id=77,
+        message_id=10,
+    )
+    bot = FakeBot()
+    source = message(bot, user, chat_id=-100456, topic_id=77)
+    board = RecordingBoard()
+    confirmations = ShoppingConfirmationStore()
+
+    for callback_id in ("first", "second"):
+        callback = CallbackQuery(
+            id=callback_id,
+            from_user=source.from_user,
+            chat_instance="chat",
+            message=source,
+            data=f"need:{item.id}",
+        ).as_(bot)
+        await shopping_item_pressed(
+            callback,
+            session,
+            user,
+            settings(),
+            bot,
+            board,
+            confirmations,
+        )
+
+    send_requests = [
+        request
+        for request in bot.requests
+        if request.__class__.__name__ == "SendMessage"
+    ]
+    assert len(send_requests) == 1
+    assert send_requests[0].chat_id == -100456
+    assert send_requests[0].message_thread_id == 77
+    assert "Coffee" in send_requests[0].text
+    assert board.refresh_count == 1
+    assert await ShoppingService(session).get_active_items() == []
     await bot.session.close()

@@ -90,7 +90,7 @@ class ShoppingService:
     async def add_item(self, name: str, actor: User) -> ShoppingItem:
         name = " ".join(name.split())
         if not name:
-            raise InvalidShoppingItemError("🌸 Try: /need &lt;item&gt;")
+            raise InvalidShoppingItemError("Tell me what to add first, nya 🐾")
         if len(name) > MAX_ITEM_LENGTH:
             raise InvalidShoppingItemError(
                 f"That item is a bit too fluffy—keep it under {MAX_ITEM_LENGTH} "

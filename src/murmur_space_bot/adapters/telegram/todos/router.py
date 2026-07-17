@@ -8,7 +8,7 @@ from aiogram.filters import Command, CommandObject
 from aiogram.types import CallbackQuery, Message, ReplyParameters
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from murmur_space_bot.adapters.telegram.common.topics import is_topic
+from murmur_space_bot.adapters.telegram.common.topics import is_topic, send_to_topic
 from murmur_space_bot.adapters.telegram.todos.board import TodoBoardManager
 from murmur_space_bot.adapters.telegram.todos.views import (
     TODO_CALLBACK_PREFIX,
@@ -148,9 +148,10 @@ async def _notify(
     text: str,
 ) -> None:
     try:
-        await bot.send_message(
+        await send_to_topic(
+            bot,
             chat_id=settings.todo_chat_id,
-            message_thread_id=settings.todo_topic_id,
+            topic_id=settings.todo_topic_id,
             text=text,
         )
     except TelegramAPIError:
