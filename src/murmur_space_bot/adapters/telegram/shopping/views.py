@@ -31,7 +31,7 @@ def format_shopping_list(
     if items:
         lines.append("")
         lines.extend(
-            f"• {_linkify(item.name)} — by {user_link(item.added_by)}"
+            f"• {_linkify(item.name)}"
             for item in items
         )
         lines.extend((
