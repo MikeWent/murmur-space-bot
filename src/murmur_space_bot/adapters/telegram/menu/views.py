@@ -39,5 +39,5 @@ def cancel_keyboard(prompt: str) -> ReplyKeyboardMarkup:
 def welcome_text() -> str:
     return (
         "🌸 <b>Murmur Space</b>\n"
-        "A tiny shared studio for tasks and shopping. What shall we organize?"
+        "Design studio / friendly coworking.\n\n I am your assistant, here to help you organize tasks and shopping lists for the studio ✨"
     )
