@@ -8,6 +8,10 @@ from aiogram.filters import Command, CommandObject
 from aiogram.types import CallbackQuery, Message, ReplyParameters
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from murmur_space_bot.adapters.telegram.common.reactions import (
+    is_group_chat,
+    react_writing,
+)
 from murmur_space_bot.adapters.telegram.common.topics import is_topic, send_to_topic
 from murmur_space_bot.adapters.telegram.todos.board import TodoBoardManager
 from murmur_space_bot.adapters.telegram.todos.views import (
@@ -37,12 +41,20 @@ async def todo_command(
     bot: Bot,
     todo_board: TodoBoardManager,
 ) -> None:
+    in_group = is_group_chat(message)
+    if in_group:
+        await react_writing(message)
+
     service = TodoService(session)
     task_text = (command.args or "").strip()
     try:
         if task_text:
             todo = await service.create_task(task_text, db_user)
-            await message.answer(format_created(todo))
+            notification = format_created(todo)
+            if in_group:
+                await _notify_topic(bot, settings, notification)
+            else:
+                await message.answer(notification)
             await _refresh_board(todo_board, bot, session)
         elif _is_todo_topic(message, settings):
             await _reply_to_pinned_board(message, bot, session, settings, todo_board)
@@ -144,6 +156,16 @@ async def _notify(
     settings: Settings,
     text: str,
 ) -> None:
+    await _notify_topic(bot, settings, text)
+
+    if not _is_todo_topic(message, settings):
+        try:
+            await message.answer(text)
+        except TelegramAPIError:
+            logger.exception("Could not send todo notification to the source chat")
+
+
+async def _notify_topic(bot: Bot, settings: Settings, text: str) -> None:
     try:
         await send_to_topic(
             bot,
@@ -153,12 +175,6 @@ async def _notify(
         )
     except TelegramAPIError:
         logger.exception("Could not send todo notification to its topic")
-
-    if not _is_todo_topic(message, settings):
-        try:
-            await message.answer(text)
-        except TelegramAPIError:
-            logger.exception("Could not send todo notification to the source chat")
 
 
 def _is_todo_topic(message: Message, settings: Settings) -> bool:

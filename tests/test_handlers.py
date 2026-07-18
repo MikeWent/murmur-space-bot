@@ -155,6 +155,56 @@ async def test_todo_command_creates_and_lists_task_without_visible_id(
     await bot.session.close()
 
 
+async def test_todo_in_group_reacts_and_notifies_only_todo_topic(
+    session: AsyncSession,
+) -> None:
+    user = await make_user(session, 1, "creator")
+    bot = FakeBot()
+    source = Message(
+        message_id=10,
+        date=datetime.now(timezone.utc),
+        chat=Chat(id=-999, type="supergroup"),
+        message_thread_id=12,
+        from_user=TelegramUser(
+            id=user.telegram_id,
+            is_bot=False,
+            first_name=user.first_name,
+            username=user.username,
+        ),
+        text="/todo Replace bulb",
+    ).as_(bot)
+    board = RecordingBoard()
+
+    await todo_command(
+        source,
+        SimpleNamespace(args="Replace bulb"),
+        session,
+        user,
+        settings(),
+        bot,
+        board,
+    )
+
+    send_requests = [
+        request
+        for request in bot.requests
+        if request.__class__.__name__ == "SendMessage"
+    ]
+    assert len(send_requests) == 1
+    assert send_requests[0].chat_id == settings().todo_chat_id
+    assert send_requests[0].message_thread_id == settings().todo_topic_id
+    assert "Replace bulb" in send_requests[0].text
+    reaction_requests = [
+        request
+        for request in bot.requests
+        if request.__class__.__name__ == "SetMessageReaction"
+    ]
+    assert len(reaction_requests) == 1
+    assert reaction_requests[0].reaction[0].emoji == "✍️"
+    assert board.refresh_count == 1
+    await bot.session.close()
+
+
 async def test_todo_in_its_topic_replies_to_pinned_board(
     session: AsyncSession,
 ) -> None:
@@ -250,7 +300,7 @@ async def test_todo_button_requires_two_taps_then_refreshes_views(
         and request.message_thread_id == settings().todo_topic_id
     ]
     assert len(topic_notifications) == 1
-    assert "finished by" in topic_notifications[0].text
+    assert "marked done by" in topic_notifications[0].text
     await bot.session.close()
 
 

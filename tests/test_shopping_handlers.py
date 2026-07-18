@@ -92,7 +92,7 @@ def message(
     ).as_(bot)
 
 
-async def test_need_adds_notifies_mirrors_and_refreshes_board(
+async def test_need_in_group_reacts_and_notifies_only_shopping_topic(
     session: AsyncSession,
 ) -> None:
     user = await make_user(session)
@@ -117,11 +117,17 @@ async def test_need_adds_notifies_mirrors_and_refreshes_board(
         for request in bot.requests
         if request.__class__.__name__ == "SendMessage"
     ]
-    assert len(send_requests) == 2
-    topic_notification = next(
-        request for request in send_requests if request.chat_id == -100456
-    )
+    assert len(send_requests) == 1
+    topic_notification = send_requests[0]
+    assert topic_notification.chat_id == -100456
     assert topic_notification.message_thread_id == 77
+    reaction_requests = [
+        request
+        for request in bot.requests
+        if request.__class__.__name__ == "SetMessageReaction"
+    ]
+    assert len(reaction_requests) == 1
+    assert reaction_requests[0].reaction[0].emoji == "✍️"
     await bot.session.close()
 
 

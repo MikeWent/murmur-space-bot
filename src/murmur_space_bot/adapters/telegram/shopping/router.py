@@ -8,6 +8,10 @@ from aiogram.filters import Command, CommandObject
 from aiogram.types import CallbackQuery, Message, ReplyParameters
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from murmur_space_bot.adapters.telegram.common.reactions import (
+    is_group_chat,
+    react_writing,
+)
 from murmur_space_bot.adapters.telegram.common.topics import is_topic, send_to_topic
 from murmur_space_bot.adapters.telegram.shopping.board import ShoppingBoardManager
 from murmur_space_bot.adapters.telegram.shopping.views import (
@@ -60,13 +64,21 @@ async def need_command(
     bot: Bot,
     shopping_board: ShoppingBoardManager,
 ) -> None:
+    in_group = is_group_chat(message)
+    if in_group:
+        await react_writing(message)
+
     try:
         item = await ShoppingService(session).add_item(command.args or "", db_user)
     except ServiceError as exc:
         await message.answer(str(exc))
         return
 
-    await _notify(message, bot, settings, format_item_added(item))
+    notification = format_item_added(item)
+    if in_group:
+        await _notify_topic(bot, settings, notification)
+    else:
+        await _notify(message, bot, settings, notification)
     await _refresh_board(shopping_board, bot, session)
 
 
@@ -156,6 +168,16 @@ async def _notify(
     settings: Settings,
     text: str,
 ) -> None:
+    await _notify_topic(bot, settings, text)
+
+    if not _is_shopping_topic(message, settings):
+        try:
+            await message.answer(text)
+        except TelegramAPIError:
+            logger.exception("Could not send shopping notification to source chat")
+
+
+async def _notify_topic(bot: Bot, settings: Settings, text: str) -> None:
     try:
         await send_to_topic(
             bot,
@@ -165,12 +187,6 @@ async def _notify(
         )
     except TelegramAPIError:
         logger.exception("Could not send shopping notification to its topic")
-
-    if not _is_shopping_topic(message, settings):
-        try:
-            await message.answer(text)
-        except TelegramAPIError:
-            logger.exception("Could not send shopping notification to source chat")
 
 
 def _is_shopping_topic(message: Message, settings: Settings) -> bool:
