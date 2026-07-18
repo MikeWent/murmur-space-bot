@@ -26,7 +26,7 @@ def format_shopping_list(
     local_timezone: ZoneInfo | None = None,
 ) -> str:
     lines = [
-        "🌸 <b>Shopping list</b>"
+        "🛒 <b>Shopping list</b>"
     ]
     if items:
         lines.append("")
