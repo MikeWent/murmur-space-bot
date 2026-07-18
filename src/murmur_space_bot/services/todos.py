@@ -55,10 +55,15 @@ class TodoService:
                 "That task is a bit too fluffy—keep it under 1000 characters 🐾"
             )
 
-        todo = Todo(description=description, created_by_id=creator.id)
+        todo = Todo(
+            description=description,
+            created_by=creator,
+            taken_by=None,
+            done_by=None,
+        )
         self.session.add(todo)
         await self.session.flush()
-        return await self._get_loaded(todo.id)
+        return todo
 
     async def get_dashboard(self, done_limit: int = 5) -> TodoDashboard:
         pending = list(

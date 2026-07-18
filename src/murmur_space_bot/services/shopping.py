@@ -67,10 +67,10 @@ class ShoppingService:
                 "That item is already waiting on the shopping list 🛒"
             )
 
-        item = ShoppingItem(name=name, added_by_id=actor.id)
+        item = ShoppingItem(name=name, added_by=actor, bought_by=None)
         self.session.add(item)
         await self.session.flush()
-        return await self._get_loaded(item.id)
+        return item
 
     async def get_active_items(self) -> list[ShoppingItem]:
         return list(

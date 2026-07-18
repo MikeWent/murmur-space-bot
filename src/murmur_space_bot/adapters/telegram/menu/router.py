@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import logging
 
 from aiogram import Bot, F, Router
@@ -127,8 +128,10 @@ async def add_task(
     await state.clear()
     text = format_created(todo)
     await message.answer(text, reply_markup=main_menu_keyboard())
-    await _send_to_todo_topic(bot, settings, text)
-    await _refresh_todo_board(todo_board, bot, session)
+    await asyncio.gather(
+        _send_to_todo_topic(bot, settings, text),
+        _refresh_todo_board(todo_board, bot, session),
+    )
 
 
 @router.message(MenuState.waiting_for_item, F.chat.type == ChatType.PRIVATE)
@@ -153,8 +156,10 @@ async def add_item(
     await state.clear()
     text = format_item_added(item)
     await message.answer(text, reply_markup=main_menu_keyboard())
-    await _send_to_shopping_topic(bot, settings, text)
-    await _refresh_shopping_board(shopping_board, bot, session)
+    await asyncio.gather(
+        _send_to_shopping_topic(bot, settings, text),
+        _refresh_shopping_board(shopping_board, bot, session),
+    )
 
 
 @router.message(StateFilter(None), F.chat.type == ChatType.PRIVATE)
