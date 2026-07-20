@@ -22,7 +22,7 @@ def format_created(todo: Todo) -> str:
 
 def format_completed(todo: Todo) -> str:
     actor = user_link(todo.done_by) if todo.done_by else "a mystery kitty"
-    return f"✨ <b>{escape(todo.description)}</b> marked done by {actor}!"
+    return f"✅ <b>{escape(todo.description)}</b> marked done by {actor}!"
 
 
 def format_dashboard(dashboard: TodoDashboard) -> str:
@@ -40,7 +40,7 @@ def format_dashboard(dashboard: TodoDashboard) -> str:
 
 def todo_keyboard(dashboard: TodoDashboard) -> InlineKeyboardMarkup | None:
     buttons = [
-        _status_button(todo, action="done", label="🐾")
+        _status_button(todo, action="done")
         for todo in dashboard.pending
     ]
     if not buttons:
@@ -80,8 +80,8 @@ def _format_done(todo: Todo) -> str:
     return f"  <s>{escape(todo.description)}</s> — {actor}"
 
 
-def _status_button(todo: Todo, *, action: str, label: str) -> InlineKeyboardButton:
-    prefix = f"{label} "
+def _status_button(todo: Todo, *, action: str, label: str = "") -> InlineKeyboardButton:
+    prefix = f"{label} " if label else ""
     available = BUTTON_TEXT_LIMIT - len(prefix)
     description = todo.description
     if len(description) > available:
